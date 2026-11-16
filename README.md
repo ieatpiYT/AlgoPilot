@@ -58,3 +58,21 @@ Generate up to 28 days, ending at the interview date. Availability uses IANA tim
 8. Check narrow mobile layout, keyboard navigation, modal Escape, and focus containment.
 
 Tests cover review intervals, low-confidence behavior, recommendation eligibility, overlaps, scheduling constraints, DST conversion, and persistence validation. Browser interaction and visual checks should also be performed before release.
+
+## Companion redesign
+
+The primary navigation now reads Today, My problems, My schedule, Progress, and Preferences. Today puts the next practice action first, with charts and topic confidence behind a disclosure. Review details remain available under “Why now?”.
+
+First-time visitors get a three-step setup for goals and interview date, weekly availability, and their first problem. Setup uses the existing version 1 settings; it adds no schema fields. Existing saved workspaces do not trigger onboarding automatically. “Set up later” saves the current defaults, and guided setup can always be reopened from Preferences.
+
+New problems use two steps (problem, then check-in). Reviewing an existing problem opens the check-in directly. Optional links, topics, and reflections are disclosed on demand. Rescheduling uses a native date/time input rather than a text prompt. Past/finished sessions and backups/future connections are available through secondary controls.
+
+Additional manual checks:
+
+- In a fresh browser, complete setup, including an optional interview date. Go back between steps and check that entries remain intact.
+- With an existing version 1 backup, confirm all problems, attempts, preferences, and sessions survive unchanged; automatic setup should not appear.
+- Log a problem, go back from the check-in, then return; outcome, time, confidence, and notes should remain intact.
+- Use the keyboard to open and close dialogs, navigate radio outcomes, and expand disclosures. Escape closes dialogs; Tab remains inside an open modal.
+- Check Today, setup, check-in, and availability windows at 375px width. Check that active sessions can be completed and older sessions are accessible through history.
+
+The review engine, planner algorithms, storage validator, and saved data types are unchanged by the redesign.

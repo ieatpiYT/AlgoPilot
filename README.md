@@ -6,7 +6,7 @@ Ryluno's workspace design combines a problem journal, confidence-aware spaced re
 
 > **Implementation scope:** The original workspace specification describes a local-first Next.js application. This repository contains the TanStack Start visualization companion and a tested review-engine implementation. The workspace architecture diagrams below describe the original design; they do not claim that every workspace feature is implemented here.
 
-## At a glance
+## Overview
 
 | Area | Approach |
 | :--- | :--- |

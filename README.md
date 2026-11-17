@@ -257,10 +257,11 @@ sequenceDiagram
             UI-->>Learner: Updated attempt history and review date
         else Write fails
             Storage-->>UI: Storage error
-            UI-->>Learner: Save failed; previous workspace retained
+            UI-->>Learner: Save failed - previous workspace retained
         end
     end
 ```
+
 
 ## UML: study-session lifecycle
 

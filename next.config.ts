@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // OAuth callback URLs contain one-time codes; never log request URLs.
+  logging: false,
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,

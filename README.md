@@ -418,6 +418,8 @@ src/
 
 ## Engineering principles
 
+Fo website integration setup and its current limitations are documented in [Fo integration](docs/fo-integration.md). The OAuth foundation is development-only; text submission remains blocked until authenticated Fo tool schemas are verified.
+
 - **Explainable over opaque:** scheduling decisions follow explicit rules.
 - **Bounded behavior:** interval floors and ceilings constrain the model.
 - **Separation of concerns:** calculations remain independent of chart rendering.

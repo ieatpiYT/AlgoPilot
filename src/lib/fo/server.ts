@@ -10,10 +10,13 @@ const state = globalFo.rylunoFo ??= { nextLogin: 0 };
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
 }
-function ownerFor(request: Request) {
+function accessFor(request: Request) {
   const cookie = request.headers.get('cookie')?.split(';').map(x => x.trim()).find(x => x.startsWith('ryluno_fo='))?.slice(10);
-  if (state.owner && state.owner.expires <= Date.now()) state.owner = undefined;
-  return cookie && state.owner && equalSecret(cookie, state.owner.id) ? state.owner : undefined;
+  if (!cookie) return { reason: 'missing_cookie' as const };
+  if (!state.owner) return { reason: 'server_session_missing' as const };
+  if (state.owner.expires <= Date.now()) { state.owner = undefined; return { reason: 'expired_session' as const }; }
+  if (!equalSecret(cookie, state.owner.id)) return { reason: 'session_mismatch' as const };
+  return { owner: state.owner };
 }
 export async function handleFo(request: Request, action: string) {
   if (!allowedRequest(request)) return json({ status: 'disabled', message: 'Fo requires enabled, authenticated localhost development. See docs/fo-integration.md.' }, 403);
@@ -22,16 +25,32 @@ export async function handleFo(request: Request, action: string) {
     state.nextLogin = Date.now() + 3000;
     const body = await readBody(request);
     if (typeof body.password !== 'string' || !equalSecret(body.password, process.env.FO_DEV_PASSWORD!)) return json({ message: 'Invalid development password.' }, 401);
+    // Re-unlocking this browser must not discard its pending PKCE/state or tokens.
+    const existing = accessFor(request).owner;
+    if (existing) return json({ status: existing.status, authenticated: true });
     state.owner = { id: randomBytes(32).toString('hex'), expires: Date.now() + 3_600_000, provider: new FoProvider(), status: 'disconnected', busy: false, tools: [] };
-    const response = json({ status: 'disconnected' });
+    const response = json({ status: 'disconnected', authenticated: true });
     response.headers.set('Set-Cookie', `ryluno_fo=${state.owner.id}; HttpOnly; SameSite=Lax; Path=/api/fo; Max-Age=3600`);
     return response;
   }
-  const owner = ownerFor(request);
-  if (!owner) return json({ status: 'locked', message: 'Unlock the local Fo connection first.' }, 401);
-  if (action === 'status' && request.method === 'GET') return json({ status: owner.status, submissionEnabled: false, schemasAvailable: owner.tools.length > 0 });
+  const { owner, reason } = accessFor(request);
+  if (!owner) {
+    const explanations = {
+      missing_cookie: 'This browser did not send the local unlock cookie.',
+      server_session_missing: 'The local server no longer has this unlock session (for example, after a restart).',
+      expired_session: 'The local unlock session expired.',
+      session_mismatch: 'This browser’s unlock session was replaced by another local login.',
+    };
+    return json({ status: 'locked', authenticated: false, reason, message: `${explanations[reason!]} Open http://localhost:3000 in this same browser, go to Preferences → Fo accountability, and select Unlock local connection with your local development password. Then select Connect Fo to start a fresh authorization. Do not reload the old callback URL.` }, 401);
+  }
+  if (action === 'status' && request.method === 'GET') return json({ status: owner.status, authenticated: true, submissionEnabled: false, schemasAvailable: owner.tools.length > 0 });
   if (action === 'schemas' && request.method === 'GET') return json({ tools: owner.tools });
-  if (action === 'logout' && request.method === 'POST') { state.owner = undefined; return json({ status: 'locked' }); }
+  if (action === 'logout' && request.method === 'POST') {
+    state.owner = undefined;
+    const response = json({ status: 'locked', authenticated: false });
+    response.headers.set('Set-Cookie', 'ryluno_fo=; HttpOnly; SameSite=Lax; Path=/api/fo; Max-Age=0');
+    return response;
+  }
   if (action === 'check-in' && request.method === 'POST') {
     const body = await readBody(request);
     return json(blockedSubmission(body.confirmed), 409);

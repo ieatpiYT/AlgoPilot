@@ -80,17 +80,24 @@ test('official SDK discovers OAuth, registers a separate client, uses PKCE, and 
     assert.equal(provider.tokens()?.access_token, 'mock-token');
   } finally { globalThis.fetch = originalFetch; }
 });
-test('routes enforce login, expose pending, reject concurrent attempts, and report failed connections', async () => {
+test('routes enforce login, preserve re-unlock state, reject concurrent attempts, and report failures', async (t) => {
   const previous = { NODE_ENV: process.env.NODE_ENV, FO_DEV_ENABLED: process.env.FO_DEV_ENABLED, FO_DEV_PASSWORD: process.env.FO_DEV_PASSWORD };
   Object.assign(process.env, env);
   const originalFetch = globalThis.fetch;
   try {
-    assert.equal((await handleFo(request('status'), 'status')).status, 401);
+    const locked = await handleFo(request('status'), 'status');
+    assert.equal(locked.status, 401);
+    assert.equal((await locked.json()).reason, 'missing_cookie');
     assert.equal((await handleFo(request('connect', 'POST'), 'connect')).status, 401);
     const login = await handleFo(request('login', 'POST', { password: env.FO_DEV_PASSWORD }), 'login');
     assert.equal(login.status, 200);
     const cookie = login.headers.get('set-cookie')!.split(';')[0];
     assert.match(login.headers.get('set-cookie')!, /HttpOnly; SameSite=Lax/);
+    const noCookieCallback = await handleFo(request('callback?state=invalid&code=fake'), 'callback');
+    assert.equal(noCookieCallback.status, 401);
+    assert.equal((await noCookieCallback.json()).reason, 'missing_cookie');
+    const replaced = await handleFo(request('status', 'GET', undefined, 'ryluno_fo=wrong-session'), 'status');
+    assert.equal((await replaced.json()).reason, 'session_mismatch');
     assert.equal((await handleFo(request('callback?state=invalid&code=fake', 'GET', undefined, cookie), 'callback')).status, 400);
     let rejectFetch!: (reason: Error) => void;
     let started!: () => void;
@@ -100,6 +107,12 @@ test('routes enforce login, expose pending, reject concurrent attempts, and repo
     await ready;
     const pending = await handleFo(request('status', 'GET', undefined, cookie), 'status');
     assert.equal((await pending.json()).status, 'pending');
+    const now = Date.now();
+    t.mock.method(Date, 'now', () => now + 4000);
+    const reunlock = await handleFo(request('login', 'POST', { password: env.FO_DEV_PASSWORD }, cookie), 'login');
+    assert.equal(reunlock.status, 200);
+    assert.equal((await reunlock.json()).status, 'pending');
+    assert.equal(reunlock.headers.get('set-cookie'), null);
     const duplicate = await handleFo(request('connect', 'POST', {}, cookie), 'connect');
     assert.equal(duplicate.status, 409);
     rejectFetch(new Error('sensitive network detail'));
@@ -110,8 +123,11 @@ test('routes enforce login, expose pending, reject concurrent attempts, and repo
       const blocked = await handleFo(request('check-in', 'POST', { confirmed: true }, cookie), 'check-in');
       assert.equal((await blocked.json()).status, 'blocked');
     }
-    await handleFo(request('logout', 'POST', {}, cookie), 'logout');
-    assert.equal((await handleFo(request('status', 'GET', undefined, cookie), 'status')).status, 401);
+    const logout = await handleFo(request('logout', 'POST', {}, cookie), 'logout');
+    assert.match(logout.headers.get('set-cookie')!, /Max-Age=0/);
+    const lost = await handleFo(request('status', 'GET', undefined, cookie), 'status');
+    assert.equal(lost.status, 401);
+    assert.equal((await lost.json()).reason, 'server_session_missing');
   } finally {
     globalThis.fetch = originalFetch;
     for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }

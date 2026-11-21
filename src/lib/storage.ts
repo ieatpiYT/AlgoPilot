@@ -1,4 +1,5 @@
 import type { Data } from './types.ts';
+// Preserve the original key so existing browser data loads without migration.
 export const STORAGE_KEY = 'algopilot.v1';
 const obj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
 const str = (x: unknown) => typeof x === 'string';
@@ -6,7 +7,7 @@ const num = (x: unknown, min: number, max: number) => typeof x === 'number' && N
 const date = (x: unknown) => str(x) && Number.isFinite(Date.parse(x as string));
 const time = (x: unknown) => str(x) && /^([01]\d|2[0-3]):[0-5]\d$/.test(x as string);
 export function validateData(input: unknown): Data {
-  const fail = () => { throw new Error('Invalid backup. Expected a valid AlgoPilot version 1 export.'); };
+  const fail = () => { throw new Error('Invalid backup. Expected a valid Ryluno version 1 export.'); };
   if (!obj(input) || input.version !== 1 || !Array.isArray(input.problems) || !Array.isArray(input.sessions) || !obj(input.settings)) return fail();
   const s = input.settings;
   try { new Intl.DateTimeFormat('en', { timeZone: s.timezone as string }).format(); } catch { return fail(); }

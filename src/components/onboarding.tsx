@@ -14,7 +14,7 @@ export function Onboarding({ initial, onFinish, onClose }: {
   const heading = useRef<HTMLHeadingElement>(null);
   function move(next: number) { setStep(next); setError(''); requestAnimationFrame(() => heading.current?.focus()); }
   function finish(add: boolean) { if (!onFinish(settings, add)) setError('Your setup is still here. We couldn’t save it to this browser. Please try again.'); }
-  return <Dialog title="Let’s find your study rhythm." description="Three small steps. You can change everything later." onClose={onClose}>
+  return <Dialog title="Let’s find your study rhythm." description="Welcome to Ryluno. Three small steps. You can change everything later." onClose={onClose}>
     <ol className="stepper" aria-label="Setup steps">{['Your goal','Your time','First problem'].map((label,i) => <li key={label} aria-current={step === i ? 'step' : undefined}>{i+1}<span>{label}</span></li>)}</ol>
     <form onSubmit={e => {
       e.preventDefault();
